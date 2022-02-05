@@ -1,0 +1,119 @@
+---
+title: 'R Practical 3: Detecting Breast Cancer'
+author: '210180178'
+output:
+  html_document: default
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+
+#task 3, 2, 1
+```{r}
+
+#setwd("/Volumes/Seagate/Sheffield university/Basic statistics/Assignment1")
+
+cancer.training <- read_csv("MAS113-cancer-training.csv")
+cancer.test <- read_csv("MAS113-cancer-test.csv")
+cancer.training$...1 <- NULL
+cancer.test$...1 <- NULL
+```
+#task 4
+```{r}
+cancer.training %>% select(2)%>% xtabs(~ status, data=.)
+
+#A greater number of benign cases (356) than malignant cases (210), with a difference of 146 between them.
+```
+
+#task 5
+```{r}
+mean_cancer.training <- cancer.training %>% select(2, 7) %>% summarise( mean(smoothness.mean))
+#0.395
+
+variance_cancer.training <- cancer.training %>% select(2, 7) %>% summarise( var(smoothness.mean))
+#0.0162
+
+t_cancer.training = qt(0.05, 565, lower.tail = FALSE)
+#1.647555
+
+percentile_95th_cancer.training <- tibble((mean_cancer.training - t_cancer.training*sqrt(variance_cancer.training/566)),  (mean_cancer.training + t_cancer.training*sqrt(variance_cancer.training/566)), .name_repair = ~ c("lower", "upper") )
+
+print(percentile_95th_cancer.training)
+#We expect most measurements to fall between the lower and upper values
+```
+
+#task 6
+```{r}
+#Calculate the K Nearest Neighbour
+library(class)
+knn(train = cancer.training[, -(1:2)],
+    test = cancer.test[,-1],
+    cl = cancer.training$status)
+
+#ID A has the case Benign, whereas ID B and C are Malignant.
+```
+
+
+#task 7
+
+
+```{r, fig.cap = "Class labels from KNN algorithm denoting inconsistency with the scatter plot", fig.align = "center", fig.height = 5, fig.width = 8}
+ggplot(cancer.training, aes(x = symmetry.se, y = texture.se)) + geom_point(aes(colour = status), alpha = 0.7)+annotate("text", x = cancer.test$symmetry.se,y = cancer.test$texture.se, label = cancer.test$ID)
+
+#ID B shows a larger number of surrounding malignant cases, matching the results from KNN. However, ID C is right next to ID A, with a higher number of benign cases. Perceptively contradicting the results from KNN. However, the overlapping points make it difficult to confirm the contradiction and relation to KNN.
+```
+
+
+
+
+
+#task 8
+
+```{r}
+#Malignant cases
+malignant.mean <- cancer.training %>%
+  filter(status == "malignant") %>%           # Extract the malignant cases
+  select(-ID, -status) %>%            # Select all columns apart from ID and status
+  apply(2, mean)                      # calculate the mean of each column in the dataframe
+
+malignant.sd <- cancer.training %>%
+  filter(status == "malignant") %>%           # Extract the malignant cases
+  select(-ID, -status) %>%            # Select all columns apart from ID and status
+  apply(2, sd)                        # calculate the sd of each column in the dataframe
+```
+
+#task 9
+```{r}
+#Benign cases
+benign.mean <- cancer.training %>%
+  filter(status == "benign") %>%           # Extract the benign cases
+  select(-ID, -status) %>%            # Select all columns apart from ID and status
+  apply(2, mean)                      # calculate the mean of each column in the dataframe
+
+benign.sd <- cancer.training %>%
+  filter(status == "benign") %>%           # Extract the benign cases
+  select(-ID, -status) %>%            # Select all columns apart from ID and status
+  apply(2, sd)                        # calculate the sd of each column in the dataframe
+```
+
+```{r}
+#Obtain the statistic
+scaled.differences <- (abs(malignant.mean-benign.mean)/(malignant.sd + benign.sd))
+#The top two measurements are 1. concave.points.worst, and 2. perimeter.worst. According to the documentation, concave.points is the number of concave portions of the contour. 
+```
+
+```{r, fig.cap = "Class labels from KNN algorithm denoting consistency with the scatter plot", fig.align = "center", fig.height = 5, fig.width = 8}
+
+#Selecting the top two measurements:
+ggplot(cancer.training, aes(x = perimeter.worst, y = concave.points.worst)) + geom_point(aes(colour = status), alpha = 0.7)+annotate("text", x = cancer.test$perimeter.worst,y = cancer.test$concave.points.worst, label = cancer.test$ID)
+
+#We find that the breast mass ID A is benign, whereas ID C and B are malignant. This is consistent with the scatterplot. However, comparatively to Task 6, we find a stronger relation in the cases in the current plot, whereas the plot in Task 6 mixes the benign and malignant cases. The perception of the plot in Task 6 looks like it contradicts the results from KNN, whereas the current plot supports it.
+```
+
